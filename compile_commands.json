@@ -1,0 +1,22 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/clang",
+      "-c",
+      "-Wall",
+      "-I/opt/homebrew/include",
+      "-framework",
+      "OpenGL",
+      "-framework",
+      "Cocoa",
+      "-framework",
+      "IOKit",
+      "-o",
+      "particles",
+      "code.c"
+    ],
+    "directory": "/Users/iulianesanu/Documents/projects/particles_engine_v1",
+    "file": "/Users/iulianesanu/Documents/projects/particles_engine_v1/code.c",
+    "output": "/Users/iulianesanu/Documents/projects/particles_engine_v1/particles"
+  }
+]
