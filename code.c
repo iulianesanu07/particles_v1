@@ -7,22 +7,20 @@
 #define PI 3.14159265
 #define WIN_WIDTH 800
 #define WIN_HEIGHT 600
-#define G 9.8f          // Constante gravitationelle
+#define G -9.8f          // Constante gravitationelle
 #define DT 0.008f       // DeltaTime intervalle de temps (~120 FPS)
 
 typedef struct {
-  int px;
-  int py;
-  float vx;
-  float vy;
-  float r;
-  int n;
+  float px, py;   // Position
+  float vx, vy;   // Velocity
+  float r;        // Radius
+  int n;          // Resolution 
 } *Circle;
 
 Circle c;
+float fa = 10;    // faster animations
 
-
-Circle initCircle(int px, int py,float vx, float vy, float r, int n) {
+Circle initCircle(float px, float py,float vx, float vy, float r, int n) {
   Circle c = malloc(sizeof(*c));
 
   if (!c) {
@@ -87,19 +85,38 @@ void init() {
   glClearColor(0.0, 0.0, 0.0, 0);
   gluOrtho2D(0, WIN_WIDTH, 0, WIN_HEIGHT);
 
-  c = initCircle(400, 300,0.0, 0.0, 50.0, 50);
+  c = initCircle(400.0, 300.0, 0.0, 0.0, 20.0, 15);
 }
 
-void showFPS() {
-  glColor3ub(255, 255, 255);
-  char fpsText[64];
-  sprintf(fpsText, "FPS : %.2f", fps);
-  
-  glRasterPos2i(10, WIN_HEIGHT - 20);
-  for(const char *c = fpsText; *c != '\0'; c++) {
+void textRender(int x, int y, char * text) {
+  glRasterPos2i(x, y);
+  for(const char *c = text; *c != '\0'; c++) {
     glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *c);
   }
+}
 
+void showData() {
+  glColor3ub(255, 255, 255);
+
+  char fpsText[32];
+  sprintf(fpsText, "FPS : %d", (int)fps);
+  char pos[32];
+  sprintf(pos, "X : %.2f Y : %.2f (pos)", c->px, c->py);
+  char vel[64];
+  sprintf(vel, "VelX : %.2f VelY : %.2f (px/s)", c->vx, c->vy);
+  
+  textRender(10, WIN_HEIGHT - 20, fpsText);
+  textRender(10, WIN_HEIGHT - 35, pos);
+  textRender(10, WIN_HEIGHT - 50, vel);
+}
+
+void updatePos() {
+  c->vy += (G * fa) * DT;
+  c->py += c->vy * DT;
+
+  if(c->py <= 0 + c->r) {
+    c->vy = -(c->vy);
+  }
 }
 
 void display() {
@@ -109,7 +126,7 @@ void display() {
 
   drawCircle(c);
 
-  showFPS(); 
+  showData(); 
   
   /*
   glColor3ub(255, 255, 255);
@@ -123,6 +140,12 @@ void display() {
   glutPostRedisplay();
 }
 
+void timer(int x) {
+  updatePos();
+  glutPostRedisplay();
+  glutTimerFunc(8, timer, 0);
+}
+
 int main(int argc, char *argv[]) {
 
   printf("Lancement programme\n");
@@ -133,7 +156,10 @@ int main(int argc, char *argv[]) {
   glutInitWindowPosition(700, 20);
   glutCreateWindow("Boing");
   init();
+
   glutDisplayFunc(display);
+  glutTimerFunc(0, timer, 0); // Lance le timer
+
   glutMainLoop();
 
   printf("Test est ce que on arrive ici ?");
