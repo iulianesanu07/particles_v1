@@ -18,8 +18,10 @@ typedef struct {
 } *Circle;
 
 Circle c;
-float fa = 10;  // faster animations
-float cr = 0.8; // constante rebond
+float fa = 20;  // faster animations
+float cr = 0.7; // constante rebond
+
+
 
 Circle initCircle(float px, float py, float vx, float vy, float r, int n) {
   Circle c = malloc(sizeof(*c));
@@ -64,7 +66,7 @@ void renderText(int x, int y, const char *text) {
 */
 
 void drawCircle(Circle c) {
-  glColor3f(0, 0.6, 0);
+  glColor3ub(255, 255, 255);
 
   float a = (2 * PI) / c->n;
 
@@ -82,11 +84,11 @@ void drawCircle(Circle c) {
   glEnd();
 }
 
-void init() {
+void init(float vx, float vy) {
   glClearColor(0.0, 0.0, 0.0, 0);
   gluOrtho2D(0, WIN_WIDTH, 0, WIN_HEIGHT);
 
-  c = initCircle(400.0, 300.0, -400.0, 0.0, 20.0, 15);
+  c = initCircle(400.0, 300.0, vx, vy, 20.0, 15);      // parametres initiaux
 }
 
 void textRender(int x, int y, char *text) {
@@ -111,22 +113,39 @@ void showData() {
   textRender(10, WIN_HEIGHT - 50, vel);
 }
 
+
 void updatePos() {
+  // update velocity
   c->vy += (G * fa) * DT;
-  c->vx += 1.0 * DT; 
+  c->vx += 1.0 * DT;
+
+  // update positions
   c->py += c->vy * DT;
   c->px += c->vx * DT;
 
-  if (c->py <= 0 + c->r || c->py >= WIN_HEIGHT - c->r) {
-    c->py = 0 + c->r;
+  // collisions on Y
+  if (c->py - c->r < 0) {
+    c->py = c->r;
     c->vy = -(c->vy) * cr;
+    c->vx *= cr;
+  } else if (c->py + c->r > WIN_HEIGHT) {
+    c->py = WIN_HEIGHT - c->r;
+    c->vy = -(c->vy) * cr;
+    c->vx *= cr;
   }
 
-  if (c->px <= 0 + c->r || c->px >= WIN_WIDTH - c->r) {
-    printf("rebond sur x : %f\n", c->vx);
+  // collisions on X
+  if (c->px - c->r < 0) {
+    c->px = c->r;
     c->vx = -(c->vx) * cr;
+    c->vy *= cr;
+  } else if (c->px + c->r > WIN_WIDTH) {
+    c->px = WIN_WIDTH - c->r;
+    c->vx = -(c->vx) * cr;
+    c->vy *= cr;
   }
 }
+
 
 void display() {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -145,8 +164,6 @@ void display() {
   */
 
   glutSwapBuffers();
-
-  glutPostRedisplay();
 }
 
 void timer(int x) {
@@ -155,20 +172,39 @@ void timer(int x) {
   glutTimerFunc(8, timer, 0);
 }
 
+void mouseClick(int button, int state, int x, int y) {
+  if (state == GLUT_DOWN && button == GLUT_LEFT_BUTTON) {
+    c->px = x;
+    c->py = WIN_HEIGHT -y;    // because of the inversion of the y axis 
+    c->vx = 0;
+    c->vy = 0;
+    glutPostRedisplay();
+  }
+}
+
 int main(int argc, char *argv[]) {
 
-  printf("Lancement programme\n");
+  printf("Lancement programme :\n");
+
+  float vxI = strtof(argv[1], NULL);
+  float vyI = strtof(argv[2], NULL);
+
+  printf("argv[0] : %s\n", argv[0]);
+  printf("argv[1] : %f\n", vxI);
+  printf("argv[2] : %f\n", vyI);
 
   glutInit(&argc, argv);
   glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
   glutInitWindowSize(WIN_WIDTH, WIN_HEIGHT);
   glutInitWindowPosition(700, 20);
   glutCreateWindow("Boing");
-  init();
+  init(vxI, vyI);
+
+  glutTimerFunc(0, timer, 0); // Lance le timer
+  glutMouseFunc(mouseClick);
 
   glutDisplayFunc(display);
-  glutTimerFunc(0, timer, 0); // Lance le timer
-
+  
   glutMainLoop();
 
   printf("Test est ce que on arrive ici ?");
