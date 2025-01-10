@@ -1,0 +1,5 @@
+Prochains trucs a faire : 
+ - Adapter le tout pour une structure liste
+ - Collision entre les balles
+ - Apparition des balles en fonction d'une touche
+ - Oue, amuses toi mdr 
