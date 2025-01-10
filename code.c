@@ -9,26 +9,28 @@
 #define PI 3.14159265
 #define WIN_WIDTH 800
 #define WIN_HEIGHT 600
-#define G -9.8f               // Constante gravitationelle
-#define DT 0.008f             // DeltaTime intervalle de temps (~120 FPS)
-#define NBR_CIRCLES 200        // Nombre de cercles
-#define PI_RGB 2.09439510239  // 2PI/3 Pour avoir une division d'un cercle en 3 (donc rgb)
-#define NBR_COLORS 100         // Nombre de couleurs voulues
+#define G -9.8f         // Constante gravitationelle
+#define DT 0.008f       // DeltaTime intervalle de temps (~120 FPS)
+#define NBR_CIRCLES 200 // Nombre de cercles
+#define PI_RGB                                                                 \
+  2.09439510239 // 2PI/3 Pour avoir une division d'un cercle en 3 (donc rgb)
+#define NBR_COLORS 100 // Nombre de couleurs voulues
 
 /* Declaration structure d'un Cercle */
 typedef struct {
-  float px, py;       // Position
-  float vx, vy;       // Velocity
-  float r;            // Radius
-  int n;              // Resolution
-  float colorShift;   // Bon bah c'est explicite la x)
+  float px, py;      // Position
+  float vx, vy;      // Velocity
+  float r;           // Radius
+  int n;             // Resolution
+  double colorShift; // Bon bah c'est explicite la x)
 } *Circle;
 
 /* Variables pour cercles */
 Circle c[NBR_CIRCLES];
-unsigned long long int shifter = 0;   // Parce que j'ai un trop petit cerveau pour faire autrement
-                                      // Et parce que la demesure c'est marrant
-                                      // 0 -> 18.446.744.073.709.551.615
+unsigned long long int shifter =
+    0; // Parce que j'ai un trop petit cerveau pour faire autrement
+       // Et parce que la demesure c'est marrant
+       // 0 -> 18.446.744.073.709.551.615
 
 /* Variables pour physique des particules */
 float fa = 20;  // faster animations
@@ -40,7 +42,8 @@ double previousTime = 0.0;
 double fps = 0.0;
 
 /* Prototypes */
-Circle initCircle(float px, float py, float vx, float vy, float r, int n, int i);
+Circle initCircle(float px, float py, float vx, float vy, float r, int n,
+                  int i);
 void calculateFPS();
 void drawCircle(Circle c);
 void initTabCircle(int n);
@@ -63,7 +66,57 @@ float generateRandomFloat(float min, float max) {
 
 int randBetween(int min, int max) { return min + rand() % (max - min + 1); }
 
-Circle initCircle(float px, float py, float vx, float vy, float r, int n, int i) {
+void wavelengthToRgb(double wavelength, unsigned char *r, unsigned char *g,
+                     unsigned char *b) {
+
+  double gamma = 0.8;
+  double intensity_max = 255;
+  double factor = 0.0;
+  double red = 0.0, green = 0.0, blue = 0.0;
+
+  if (wavelength >= 380 && wavelength < 440) {
+    red = -(wavelength - 440) / (440 - 380);
+    green = 0.0;
+    blue = 1.0;
+  } else if (wavelength >= 440 && wavelength < 490) {
+    red = 0.0;
+    green = (wavelength - 440) / (490 - 440);
+    blue = 1.0;
+  } else if (wavelength >= 490 && wavelength < 510) {
+    red = 0.0;
+    green = 1.0;
+    blue = -(wavelength - 510) / (510 - 490);
+  } else if (wavelength >= 510 && wavelength < 580) {
+    red = (wavelength - 510) / (580 - 510);
+    green = 1.0;
+    blue = 0.0;
+  } else if (wavelength >= 580 && wavelength < 645) {
+    red = 1.0;
+    green = -(wavelength - 645) / (645 - 580);
+    blue = 0.0;
+  } else if (wavelength >= 645 && wavelength <= 750) {
+    red = 1.0;
+    green = 0.0;
+    blue = 0.0;
+  }
+
+  // Ajustement de l'intensité
+  if (wavelength >= 380 && wavelength < 420) {
+    factor = 0.3 + 0.7 * (wavelength - 380) / (420 - 380);
+  } else if (wavelength >= 645 && wavelength <= 750) {
+    factor = 0.3 + 0.7 * (750 - wavelength) / (750 - 645);
+  } else {
+    factor = 1.0;
+  }
+
+  // Appliquer le gamma et normaliser
+  *r = (unsigned char)(pow(red * factor, gamma) * intensity_max);
+  *g = (unsigned char)(pow(green * factor, gamma) * intensity_max);
+  *b = (unsigned char)(pow(blue * factor, gamma) * intensity_max);
+}
+
+Circle initCircle(float px, float py, float vx, float vy, float r, int n,
+                  int i) {
   Circle c = malloc(sizeof(*c));
 
   if (!c) {
@@ -77,7 +130,7 @@ Circle initCircle(float px, float py, float vx, float vy, float r, int n, int i)
   c->vy = vy;
   c->r = r;
   c->n = n;
-  c->colorShift = i % NBR_COLORS;
+  c->colorShift = 380 + (370 / NBR_COLORS) * (i % NBR_COLORS); // 380 -> minwavelength => plage : 380-750 donc 370
 
   printf("%d\n", i);
 
@@ -106,9 +159,9 @@ void renderText(int x, int y, const char *text) {
 
 void drawCircle(Circle c) {
 
-  float r = sin(c->colorShift) * 255;
-  float g = sin(c->colorShift + PI_RGB) * 255;
-  float b = sin(c->colorShift - PI_RGB) * 255;
+  unsigned char r, g, b;
+
+  wavelengthToRgb(c->colorShift, &r, &g, &b);
 
   glColor3ub(r, g, b);
 
@@ -130,13 +183,10 @@ void drawCircle(Circle c) {
 
 void initTabCircle(int n) {
   for (int i = 0; i < NBR_CIRCLES; i++) {
-    c[i] = initCircle(generateRandomFloat(0, WIN_WIDTH),
-                      generateRandomFloat(0, WIN_HEIGHT),
-                      generateRandomFloat(-100, 100),
-                      generateRandomFloat(-100, 100), 
-                      randBetween(5, 15), 
-                      25,
-                      i);
+    c[i] = initCircle(
+        generateRandomFloat(0, WIN_WIDTH), generateRandomFloat(0, WIN_HEIGHT),
+        generateRandomFloat(-100, 100), generateRandomFloat(-100, 100),
+        randBetween(5, 15), 25, i);
   }
 }
 
