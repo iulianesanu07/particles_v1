@@ -1,3 +1,12 @@
+/* Prochain truc a faire : 
+ *    - correction colisions entre cercles
+ *    - changement pour faire apparaitre cercles au click
+ *    - stockage des cercles en linked list
+ */
+
+
+
+
 #include "GL/freeglut_std.h"
 #include <GL/glut.h>
 #include <OpenGL/OpenGL.h>
