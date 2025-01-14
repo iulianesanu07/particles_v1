@@ -9,20 +9,21 @@
 #define PI 3.14159265
 #define WIN_WIDTH 800
 #define WIN_HEIGHT 600
-#define G -9.8f         // Constante gravitationelle
-#define DT 0.008f       // DeltaTime intervalle de temps (~120 FPS)
-#define NBR_CIRCLES 200 // Nombre de cercles
+#define G -9.8f       // Constante gravitationelle
+#define DT 0.008f     // DeltaTime intervalle de temps (~120 FPS)
+#define NBR_CIRCLES 5 // Nombre de cercles
 #define PI_RGB                                                                 \
   2.09439510239 // 2PI/3 Pour avoir une division d'un cercle en 3 (donc rgb)
-#define NBR_COLORS 100 // Nombre de couleurs voulues
+#define NBR_COLORS 5 // Nombre de couleurs voulues
 
 /* Declaration structure d'un Cercle */
 typedef struct {
-  float px, py;      // Position
-  float vx, vy;      // Velocity
-  float r;           // Radius
-  int n;             // Resolution
-  double colorShift; // Bon bah c'est explicite la x)
+  float px, py;          // Position
+  float vx, vy;          // Velocity
+  float rad;             // Radius
+  int n;                 // Resolution
+  double colorShift;     // Bon bah c'est explicite la x)
+  unsigned char r, g, b; // Colors value
 } *Circle;
 
 /* Variables pour cercles */
@@ -46,7 +47,7 @@ Circle initCircle(float px, float py, float vx, float vy, float r, int n,
                   int i);
 void calculateFPS();
 void drawCircle(Circle c);
-void initTabCircle(int n);
+void initTabCircle();
 void init();
 void textRender(int x, int y, char *text);
 void showData();
@@ -57,6 +58,7 @@ float generateRandomFloat(float min, float max);
 int randBetween(int min, int max);
 void collisionEntreBalles();
 void numBalle();
+void bounceEdges(Circle c);
 
 /* Main */
 
@@ -115,7 +117,15 @@ void wavelengthToRgb(double wavelength, unsigned char *r, unsigned char *g,
   *b = (unsigned char)(pow(blue * factor, gamma) * intensity_max);
 }
 
-Circle initCircle(float px, float py, float vx, float vy, float r, int n,
+/* Fonction d'initialisation d'un cercle
+ * Parametres : 
+ *  float px, py  -> position centre
+ *  float vx, vy  -> vecteur vitesse
+ *  float rad     -> rayon
+ *  int n         -> resolution
+ *  int i         -> numerotation cercle
+ *  */
+Circle initCircle(float px, float py, float vx, float vy, float rad, int n,
                   int i) {
   Circle c = malloc(sizeof(*c));
 
@@ -128,9 +138,15 @@ Circle initCircle(float px, float py, float vx, float vy, float r, int n,
   c->py = py;
   c->vx = vx;
   c->vy = vy;
-  c->r = r;
+  c->rad = rad;
   c->n = n;
-  c->colorShift = 380 + (370 / NBR_COLORS) * (i % NBR_COLORS); // 380 -> minwavelength => plage : 380-750 donc 370
+
+  double colorShift =
+      380 +
+      (370.0 / NBR_COLORS) *
+          (i % NBR_COLORS); // 380 -> minwavelength => plage : 380-750 donc 370
+
+  wavelengthToRgb(colorShift, &c->r, &c->g, &c->b);
 
   printf("%d\n", i);
 
@@ -159,46 +175,46 @@ void renderText(int x, int y, const char *text) {
 
 void drawCircle(Circle c) {
 
-  unsigned char r, g, b;
+//unsigned char r, g, b;
 
-  wavelengthToRgb(c->colorShift, &r, &g, &b);
+//wavelengthToRgb(c->colorShift, &r, &g, &b);
 
-  glColor3ub(r, g, b);
+  glColor3ub(c->r, c->g, c->b);
 
   float a = (2 * PI) / c->n;
 
-  float px2 = c->px + c->r;
+  float px2 = c->px + c->rad;
   float py2 = c->py;
 
   glBegin(GL_TRIANGLES);
   for (int i = 1; i <= c->n; i++) {
     glVertex2f((float)c->px, (float)c->py);
     glVertex2f(px2, py2);
-    px2 = c->px + c->r * cos(a * i);
-    py2 = c->py + c->r * sin(a * i);
+    px2 = c->px + c->rad * cos(a * i);
+    py2 = c->py + c->rad * sin(a * i);
     glVertex2f(px2, py2);
   }
   glEnd();
 }
 
-void initTabCircle(int n) {
+void initTabCircle() {
   for (int i = 0; i < NBR_CIRCLES; i++) {
     c[i] = initCircle(
         generateRandomFloat(0, WIN_WIDTH), generateRandomFloat(0, WIN_HEIGHT),
         generateRandomFloat(-100, 100), generateRandomFloat(-100, 100),
-        randBetween(5, 15), 25, i);
+        randBetween(20, 70), 25, i);
   }
 }
+
+
 
 void init() {
   glClearColor(0.0, 0.0, 0.0, 0);
   gluOrtho2D(0, WIN_WIDTH, 0, WIN_HEIGHT);
 
-  initTabCircle(1);
+  initTabCircle();
 
   printf("Fin initialisation cercles\n");
-  // c[n] = initCircle(400.0, 300.0, vx, vy, 20.0, 15);      // parametres
-  // initiaux
 }
 
 void textRender(int x, int y, char *text) {
@@ -236,27 +252,33 @@ void updatePos(Circle c) {
   c->py += c->vy * DT;
   c->px += c->vx * DT;
 
-  // collisions on Y
-  if (c->py - c->r < 0) {
-    c->py = c->r;
-    c->vy = -(c->vy) * cr;
+  return;
+}
+
+void bounceEdges(Circle c) {
+  // Bounces with walls (X axis)
+  if (c->px < c->rad) {
+    c->px = c->rad;
+    c->vx *= -1 * cr;
+    c->vy *= cr;
+  } else if (c->px > WIN_WIDTH - c->rad) {
+    c->px = WIN_WIDTH - c->rad;
+    c->vx *= -1 * cr;
+    c->vy *= cr;
+  }
+
+  // Bounces with floor and ceiling
+  if (c->py < c->rad) {
+    c->py = c->rad;
+    c->vy *= -1 * cr;
     c->vx *= cr;
-  } else if (c->py + c->r > WIN_HEIGHT) {
-    c->py = WIN_HEIGHT - c->r;
-    c->vy = -(c->vy) * cr;
+  } else if (c->py > WIN_HEIGHT - c->rad) {
+    c->py = WIN_HEIGHT - c->rad;
+    c->vy *= -1 * cr;
     c->vx *= cr;
   }
 
-  // collisions on X
-  if (c->px - c->r < 0) {
-    c->px = c->r;
-    c->vx = -(c->vx) * cr;
-    c->vy *= cr;
-  } else if (c->px + c->r > WIN_WIDTH) {
-    c->px = WIN_WIDTH - c->r;
-    c->vx = -(c->vx) * cr;
-    c->vy *= cr;
-  }
+  return;
 }
 
 void collisionEntreBalles() {
@@ -265,7 +287,7 @@ void collisionEntreBalles() {
       if (c[i] != c[j]) {
         float dist = sqrt(((c[j]->px - c[i]->px) * (c[j]->px - c[i]->px)) +
                           ((c[j]->py - c[i]->py) * (c[j]->py - c[i]->py)));
-        if ((c[i]->r + c[j]->r) >= dist) {
+        if ((c[i]->rad + c[j]->rad) >= dist) {
           c[i]->vx = -c[i]->vx;
           c[i]->vy = -c[i]->vy;
           c[j]->vx = -c[j]->vx;
@@ -301,6 +323,7 @@ void timer(int x) {
 
   for (int i = 0; i < NBR_CIRCLES; i++) {
     updatePos(c[i]);
+    bounceEdges(c[i]);
   }
 
   collisionEntreBalles();
