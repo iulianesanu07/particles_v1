@@ -1,5 +1,5 @@
 /* Prochain truc a faire :
- *    - correction colisions entre cercles
+ *    - gestion overlap
  *    - changement pour faire apparaitre cercles au click
  *    - stockage des cercles en linked list
  */
@@ -21,8 +21,8 @@
 #define WIN_HEIGHT 600
 #define G -9.8f
 #define DT 0.008f
-#define NBR_CIRCLES 2
-#define NBR_COLORS 2
+#define NBR_CIRCLES 15
+#define NBR_COLORS 45
 
 /* =============================== */
 /*            STRUCTURES           */
@@ -85,7 +85,7 @@ float generateRandomFloat(float min, float max);
 int randBetween(int min, int max);
 void wavelengthToRgb(double wavelength, unsigned char *r, unsigned char *g,
                      unsigned char *b);
-void timer(int x); 
+void timer(int x);
 
 // Vecteurs
 float vecDot(Vector2D a, Vector2D b);
@@ -145,28 +145,24 @@ void wavelengthToRgb(double wavelength, unsigned char *r, unsigned char *g,
 /*           VECTEURS              */
 /* =============================== */
 
-float vecDot(Vector2D a, Vector2D b) {
-    return a.x * b.x + a.y * b.y;
-}
+float vecDot(Vector2D a, Vector2D b) { return a.x * b.x + a.y * b.y; }
 
 Vector2D vecSub(Vector2D a, Vector2D b) {
-    Vector2D result = {a.x - b.x, a.y - b.y};
-    return result;
+  Vector2D result = {a.x - b.x, a.y - b.y};
+  return result;
 }
 
 Vector2D vecMul(Vector2D v, float scalar) {
-    Vector2D result = {v.x * scalar, v.y * scalar};
-    return result;
+  Vector2D result = {v.x * scalar, v.y * scalar};
+  return result;
 }
 
 Vector2D vecAdd(Vector2D a, Vector2D b) {
-    Vector2D result = {a.x + b.x, a.y + b.y};
-    return result;
+  Vector2D result = {a.x + b.x, a.y + b.y};
+  return result;
 }
 
-float vecSq(Vector2D v) {
-  return v.x * v.x + v.y * v.y;
-}
+float vecSq(Vector2D v) { return v.x * v.x + v.y * v.y; }
 
 /* =============================== */
 /*         INITIALISATION          */
@@ -193,7 +189,7 @@ void initTabCircle() {
     c[i] = initCircle(
         generateRandomFloat(0, WIN_WIDTH), generateRandomFloat(0, WIN_HEIGHT),
         generateRandomFloat(-1000, 1000), generateRandomFloat(-1000, 1000),
-        randBetween(20, 70), 25, i);
+        randBetween(10, 25), 25, i);
   }
 }
 
@@ -233,7 +229,6 @@ void bounceEdges(Circle c) {
   return;
 }
 
-
 void updatePos(Circle c) {
   // update velocity
   c->vel.y += (G * fa) * DT;
@@ -247,84 +242,96 @@ void updatePos(Circle c) {
 }
 
 void collisionDetection() {
-    for (int i = 0; i < NBR_CIRCLES; i++) {
-        for (int j = i + 1; j < NBR_CIRCLES; j++) {
-            Vector2D delta = vecSub(c[j]->pos, c[i]->pos);
-            if (vecSq(delta) <= pow(c[i]->rad + c[j]->rad, 2)) {
-                collisionResolution(c[i], c[j]);
-            }
-        }
+  for (int i = 0; i < NBR_CIRCLES; i++) {
+    for (int j = i + 1; j < NBR_CIRCLES; j++) {
+      float dx = c[j]->pos.x - c[i]->pos.x;
+      float dy = c[j]->pos.y - c[i]->pos.y;
+      float distSq = dx * dx + dy * dy;
+      float radSum = c[i]->rad + c[j]->rad;
+      if (radSum * radSum >= distSq) {
+        collisionResolution(c[i], c[j]);
+      }
     }
+  }
 }
 
 void collisionResolution(Circle c1, Circle c2) {
 
-  float mass =
-      PI *
-      ((c1->rad * c1->rad) +
-       (c2->rad *
-        c2->rad)); // somme de la masse des deux balles (base sur le radius)
+  printf("boing\n");
 
-  printf("boing \n");
+  Vector2D deltaPos = vecSub(c2->pos, c1->pos);
+  Vector2D deltaVel = vecSub(c2->vel, c1->vel);
+  float distSq = vecSq(deltaPos);
+  if (distSq == 0)
+    return; // Évite la division par zéro
 
-  return;
-}
+  float m1 = c1->rad * c1->rad * PI;
+  float m2 = c2->rad * c2->rad * PI;
+
+  float factor1 = (2 * m2) / (m1 + m2) * (vecDot(deltaVel, deltaPos) / distSq);
+  float factor2 =
+      (2 * m1) / (m1 + m2) *
+      (vecDot(vecSub(c1->vel, c2->vel), vecSub(c1->pos, c2->pos)) / distSq);
+
+  c1->vel = vecAdd(c1->vel, vecMul(deltaPos, factor1));
+  c2->vel = vecAdd(c2->vel, vecMul(vecSub(c1->pos, c2->pos), factor2));
+} 
 
 /* =============================== */
 /*           AFFICHAGE             */
 /* =============================== */
 
 void drawCircle(Circle c) {
-    glColor3ub(c->r, c->g, c->b);
-    float a = (2 * PI) / c->n;
-    float px2 = c->pos.x + c->rad;
-    float py2 = c->pos.y;
+  glColor3ub(c->r, c->g, c->b);
+  float a = (2 * PI) / c->n;
+  float px2 = c->pos.x + c->rad;
+  float py2 = c->pos.y;
 
-    glBegin(GL_TRIANGLES);
-    for (int i = 1; i <= c->n; i++) {
-        glVertex2f(c->pos.x, c->pos.y);
-        glVertex2f(px2, py2);
-        px2 = c->pos.x + c->rad * cos(a * i);
-        py2 = c->pos.y + c->rad * sin(a * i);
-        glVertex2f(px2, py2);
-    }
-    glEnd();
+  glBegin(GL_TRIANGLES);
+  for (int i = 1; i <= c->n; i++) {
+    glVertex2f(c->pos.x, c->pos.y);
+    glVertex2f(px2, py2);
+    px2 = c->pos.x + c->rad * cos(a * i);
+    py2 = c->pos.y + c->rad * sin(a * i);
+    glVertex2f(px2, py2);
+  }
+  glEnd();
 }
 
 void display() {
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    calculateFPS();
-    for (int i = 0; i < NBR_CIRCLES; i++) {
-        drawCircle(c[i]);
-    }
-    showData();
-    glutSwapBuffers();
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  calculateFPS();
+  for (int i = 0; i < NBR_CIRCLES; i++) {
+    drawCircle(c[i]);
+  }
+  showData();
+  glutSwapBuffers();
 }
 
 void calculateFPS() {
-    static int frameCount = 0;
-    static double previousTime = 0.0;
-    double currentTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
-    frameCount++;
-    if (currentTime - previousTime >= 1.0) {
-        fps = frameCount / (currentTime - previousTime);
-        previousTime = currentTime;
-        frameCount = 0;
-    }
+  static int frameCount = 0;
+  static double previousTime = 0.0;
+  double currentTime = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
+  frameCount++;
+  if (currentTime - previousTime >= 1.0) {
+    fps = frameCount / (currentTime - previousTime);
+    previousTime = currentTime;
+    frameCount = 0;
+  }
 }
 
 void textRender(int x, int y, char *text) {
-    glRasterPos2i(x, y);
-    for (const char *c = text; *c != '\0'; c++) {
-        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *c);
-    }
+  glRasterPos2i(x, y);
+  for (const char *c = text; *c != '\0'; c++) {
+    glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *c);
+  }
 }
 
 void showData() {
-    glColor3ub(255, 255, 255);
-    char fpsText[32];
-    sprintf(fpsText, "FPS : %d", (int)fps);
-    textRender(10, WIN_HEIGHT - 20, fpsText);
+  glColor3ub(255, 255, 255);
+  char fpsText[32];
+  sprintf(fpsText, "FPS : %d", (int)fps);
+  textRender(10, WIN_HEIGHT - 20, fpsText);
 }
 
 /* =============================== */
@@ -332,13 +339,13 @@ void showData() {
 /* =============================== */
 
 void timer(int x) {
-    for (int i = 0; i < NBR_CIRCLES; i++) {
-        updatePos(c[i]);
-        bounceEdges(c[i]);
-    }
-    collisionDetection();
-    glutPostRedisplay();
-    glutTimerFunc((int)(DT * 1000), timer, 0);
+  for (int i = 0; i < NBR_CIRCLES; i++) {
+    updatePos(c[i]);
+    bounceEdges(c[i]);
+  }
+  collisionDetection();
+  glutPostRedisplay();
+  glutTimerFunc((int)(DT * 1000), timer, 0);
 }
 
 /* =============================== */
@@ -346,14 +353,14 @@ void timer(int x) {
 /* =============================== */
 
 int main(int argc, char *argv[]) {
-    srand((unsigned int)time(NULL));
-    glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
-    glutInitWindowSize(WIN_WIDTH, WIN_HEIGHT);
-    glutCreateWindow("Boing");
-    init();
-    glutTimerFunc(0, timer, 0);
-    glutDisplayFunc(display);
-    glutMainLoop();
-    return 0;
+  srand((unsigned int)time(NULL));
+  glutInit(&argc, argv);
+  glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+  glutInitWindowSize(WIN_WIDTH, WIN_HEIGHT);
+  glutCreateWindow("Boing");
+  init();
+  glutTimerFunc(0, timer, 0);
+  glutDisplayFunc(display);
+  glutMainLoop();
+  return 0;
 }
