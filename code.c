@@ -1,5 +1,5 @@
 /* Prochain truc a faire :
- *    - gestion overlap
+ *    - ajout de la constante de rebon aux rebonds entre les balles
  *    - changement pour faire apparaitre cercles au click
  *    - stockage des cercles en linked list
  */
@@ -18,11 +18,11 @@
 
 #define PI 3.14159265
 #define WIN_WIDTH 800
-#define WIN_HEIGHT 600
+#define WIN_HEIGHT 800
 #define G -9.8f
 #define DT 0.008f
-#define NBR_CIRCLES 15
-#define NBR_COLORS 45
+#define NBR_CIRCLES 500
+#define NBR_COLORS 1000
 
 /* =============================== */
 /*            STRUCTURES           */
@@ -91,6 +91,7 @@ void timer(int x);
 float vecDot(Vector2D a, Vector2D b);
 Vector2D vecSub(Vector2D a, Vector2D b);
 Vector2D vecMul(Vector2D v, float scalar);
+Vector2D vecAdd(Vector2D a, Vector2D b);
 Vector2D vecAdd(Vector2D a, Vector2D b);
 float vecSq(Vector2D v);
 
@@ -162,6 +163,11 @@ Vector2D vecAdd(Vector2D a, Vector2D b) {
   return result;
 }
 
+// Vitesse relative
+Vector2D vecVelRel(Circle a, Circle b) {
+  return (Vector2D){b->vel.x - a->vel.x, b->vel.y - a->vel.y};
+}
+
 float vecSq(Vector2D v) { return v.x * v.x + v.y * v.y; }
 
 /* =============================== */
@@ -188,8 +194,8 @@ void initTabCircle() {
   for (int i = 0; i < NBR_CIRCLES; i++) {
     c[i] = initCircle(
         generateRandomFloat(0, WIN_WIDTH), generateRandomFloat(0, WIN_HEIGHT),
-        generateRandomFloat(-1000, 1000), generateRandomFloat(-1000, 1000),
-        randBetween(10, 25), 25, i);
+        generateRandomFloat(-250, 250), generateRandomFloat(-250, 250),
+        randBetween(5, 20), 25, i);
   }
 }
 
@@ -246,9 +252,35 @@ void collisionDetection() {
     for (int j = i + 1; j < NBR_CIRCLES; j++) {
       float dx = c[j]->pos.x - c[i]->pos.x;
       float dy = c[j]->pos.y - c[i]->pos.y;
-      float distSq = dx * dx + dy * dy;
+      float dist = sqrtf(dx * dx + dy * dy);
       float radSum = c[i]->rad + c[j]->rad;
-      if (radSum * radSum >= distSq) {
+
+      if (dist < radSum) {
+        // Correction de l'overlap
+        float overlap = (radSum - dist) / 2.0f;
+
+        // Normalisation du vecteur de collision
+        dx /= dist;
+        dy /= dist;
+
+        // Correction de position pour éviter le chevauchement
+        c[i]->pos.x -= dx * overlap;
+        c[i]->pos.y -= dy * overlap;
+        c[j]->pos.x += dx * overlap;
+        c[j]->pos.y += dy * overlap;
+
+        // Calcul de la vitesse relative
+        Vector2D vRel = vecVelRel(c[i], c[j]);
+
+        // Produit scalaire entre la vitesse relative et la direction de
+        // collision
+        float dotProduct = vecDot(vRel, (Vector2D){dx, dy});
+
+        if (dotProduct >= 0) {
+          continue; // Les cercles s'éloignent, pas de traitement
+        }
+
+        // Résolution de la collision
         collisionResolution(c[i], c[j]);
       }
     }
@@ -256,13 +288,10 @@ void collisionDetection() {
 }
 
 void collisionResolution(Circle c1, Circle c2) {
-
-  printf("boing\n");
-
   Vector2D deltaPos = vecSub(c2->pos, c1->pos);
   Vector2D deltaVel = vecSub(c2->vel, c1->vel);
   float distSq = vecSq(deltaPos);
-  if (distSq == 0)
+  if (distSq == 0.0f)
     return; // Évite la division par zéro
 
   float m1 = c1->rad * c1->rad * PI;
@@ -275,7 +304,7 @@ void collisionResolution(Circle c1, Circle c2) {
 
   c1->vel = vecAdd(c1->vel, vecMul(deltaPos, factor1));
   c2->vel = vecAdd(c2->vel, vecMul(vecSub(c1->pos, c2->pos), factor2));
-} 
+}
 
 /* =============================== */
 /*           AFFICHAGE             */
