@@ -21,8 +21,8 @@
 #define WIN_HEIGHT 800
 #define G -9.8f
 #define DT 0.008f
-#define NBR_CIRCLES 500
-#define NBR_COLORS 1000
+#define NBR_CIRCLES 10
+#define NBR_COLORS 100
 
 /* =============================== */
 /*            STRUCTURES           */
@@ -195,7 +195,7 @@ void initTabCircle() {
     c[i] = initCircle(
         generateRandomFloat(0, WIN_WIDTH), generateRandomFloat(0, WIN_HEIGHT),
         generateRandomFloat(-250, 250), generateRandomFloat(-250, 250),
-        randBetween(5, 20), 25, i);
+        randBetween(25, 100), 50, i);
   }
 }
 
