@@ -1,5 +1,4 @@
 /* Prochain truc a faire :
- *    - ajout de la constante de rebon aux rebonds entre les balles
  *    - changement pour faire apparaitre cercles au click
  *    - stockage des cercles en linked list
  */
@@ -21,8 +20,8 @@
 #define WIN_HEIGHT 800
 #define G -9.8f
 #define DT 0.008f
-#define NBR_CIRCLES 10
-#define NBR_COLORS 100
+#define NBR_CIRCLES 50
+#define NBR_COLORS 10
 
 /* =============================== */
 /*            STRUCTURES           */
@@ -195,7 +194,7 @@ void initTabCircle() {
     c[i] = initCircle(
         generateRandomFloat(0, WIN_WIDTH), generateRandomFloat(0, WIN_HEIGHT),
         generateRandomFloat(-250, 250), generateRandomFloat(-250, 250),
-        randBetween(25, 100), 50, i);
+        randBetween(5, 50), 25, i);
   }
 }
 
@@ -286,7 +285,7 @@ void collisionDetection() {
     }
   }
 }
-
+ /*
 void collisionResolution(Circle c1, Circle c2) {
   Vector2D deltaPos = vecSub(c2->pos, c1->pos);
   Vector2D deltaVel = vecSub(c2->vel, c1->vel);
@@ -304,6 +303,36 @@ void collisionResolution(Circle c1, Circle c2) {
 
   c1->vel = vecAdd(c1->vel, vecMul(deltaPos, factor1));
   c2->vel = vecAdd(c2->vel, vecMul(vecSub(c1->pos, c2->pos), factor2));
+}
+*/
+
+
+void collisionResolution(Circle c1, Circle c2) {
+  Vector2D deltaPos = vecSub(c2->pos, c1->pos);
+  Vector2D deltaVel = vecSub(c2->vel, c1->vel);
+  float distSq = vecSq(deltaPos);
+  if (distSq == 0.0f)
+    return; // Évite la division par zéro
+
+  float m1 = c1->rad * c1->rad * PI;
+  float m2 = c2->rad * c2->rad * PI;
+
+  // Calcul du facteur scalaire de l'impulsion relative
+  float velAlongNormal = vecDot(deltaVel, deltaPos) / sqrtf(distSq);
+
+  // Si les cercles s'éloignent déjà, pas besoin de résoudre
+  if (velAlongNormal > 0)
+    return;
+
+  // Calcul de l'impulsion scalaire avec restitution
+  float impulse = -(1 + cr) * velAlongNormal / (1 / m1 + 1 / m2);
+
+  // Vecteur de l'impulsion
+  Vector2D impulseVec = vecMul(deltaPos, impulse / sqrtf(distSq));
+
+  // Mise à jour des vitesses en tenant compte de l'impulsion
+  c1->vel = vecSub(c1->vel, vecMul(impulseVec, 1 / m1));
+  c2->vel = vecAdd(c2->vel, vecMul(impulseVec, 1 / m2));
 }
 
 /* =============================== */
